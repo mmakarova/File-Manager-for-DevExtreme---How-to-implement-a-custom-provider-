@@ -80,18 +80,5 @@ string CreateResponse(bool success, int? errorCode, string errorText, FileDataIt
 
 ## Files to Review
 
-- link.cs (VB: link.vb)
-- link.js
-- ...
-
-## Documentation
-
-- link
-- link
-- ...
-
-## More Examples
-
-- link
-- link
-- ...
+- [Index.cshtml](./CS/Pages/Index.cshtml)
+- [DataController.cs](./CS/Controllers/DataController.cs)
