@@ -19,17 +19,18 @@ Based on this data, you can throw an error using the [DevExpress.fileManagement.
 renameItem: function (item, newName) {
     var url = "/api/data/RenameItem";
     var data = { pathInfo: item.key, newName: newName };
-    return SendAjaxGetRequest(url, data); 
+    return SendAjaxRequest(url, data);
 },
 
-function SendAjaxGetRequest(url, data) {
+function SendAjaxRequest(url, data, requestType = "get") {
     return new Promise((resolve, reject) => {
         $.ajax({
             url: url,
             data: data,
-            type: 'get',
+            type: requestType,
             dataType: 'json',
-            contentType: "application/json; charset=utf-8",
+            contentType: requestType == "get" ? "application/json; charset=utf-8" : false,
+            processData: requestType == "get",
             async: false,
             success: function (response) {
                 if (response.success == false) {
@@ -45,36 +46,33 @@ function SendAjaxGetRequest(url, data) {
 ```
 
 ```cs
-[Route("RenameItem")]
-[HttpGet]
-public string RenameItem(string pathInfo, string newName) {
-    string response = string.Empty;
-    FileAttributes attr = System.IO.File.GetAttributes(pathInfo);
-    if (attr.HasFlag(FileAttributes.Directory)) {
-        DirectoryInfo di = new DirectoryInfo(pathInfo);
-        string folderName = Path.GetDirectoryName(pathInfo);
-        string newDirectory = Path.Combine(di.Parent.FullName, newName);
-        if (Directory.Exists(newDirectory)) {
-            return this.CreateResponse(false, 409, "The target directory already exists", null);
+        [Route("RenameItem")]
+        [HttpGet]
+        public string RenameItem(string pathInfo, string newName) {
+            string response = string.Empty;
+            FileAttributes attr = System.IO.File.GetAttributes(pathInfo);
+            if (attr.HasFlag(FileAttributes.Directory)) {
+                DirectoryInfo di = new DirectoryInfo(pathInfo);
+                string folderName = Path.GetDirectoryName(pathInfo);
+                string newDirectory = Path.Combine(di.Parent.FullName, newName);
+                if (Directory.Exists(newDirectory)) {
+                    return this.CreateResponse(false, 409, "The target directory already exists", null);
+                }
+                di.MoveTo(newDirectory);
+            } else {
+                FileInfo fi = new FileInfo(pathInfo);
+                string newpath = Path.Combine(fi.Directory.FullName, newName);                
+                if (fi.Exists) {
+                    return this.CreateResponse(false, 409, "The target file already exists", null);
+                }
+                fi.MoveTo(newpath);
+            }
+            return this.CreateResponse(true, null, null, null); ;
         }
-        di.MoveTo(newDirectory);
-    } else {
-        FileInfo fi = new FileInfo(pathInfo);
-        string newpath = Path.Combine(fi.Directory.FullName, newName);
-        FileInfo nfi = new FileInfo(newpath);
-        if (nfi.Exists) {
-            return this.CreateResponse(false, 409, "The target file already exists", null);
+        string CreateResponse(bool success, int? errorCode, string errorText, FileDataItem[] result) {
+            var serializerSettings = new JsonSerializerSettings() { ContractResolver = new CamelCasePropertyNamesContractResolver() };            
+            return JsonConvert.SerializeObject(new { success, errorCode, errorText, result }, serializerSettings);
         }
-        fi.MoveTo(newpath);
-    }
-    return this.CreateResponse(true, null, null, null); ;
-}
-string CreateResponse(bool success, int? errorCode, string errorText, FileDataItem[] result) {
-    var serializerSettings = new JsonSerializerSettings();
-    serializerSettings.ContractResolver = new CamelCasePropertyNamesContractResolver();
-    string response = JsonConvert.SerializeObject(new { success = success, errorCode = errorCode, errorText = errorText, result = result }, serializerSettings);
-    return response;
-}
 ```
 
 
