@@ -4,14 +4,79 @@
 <h2>Home</h2>
 <script>
     $(() => {
-        function SendAjaxGetRequest(url, data) {
+        var customProvider = new DevExpress.fileManagement.CustomFileSystemProvider({
+            getItems: function (pathInfo) {
+                var url = "/api/data/getitems";
+                var data = { pathInfo: pathInfo.key };
+                return SendAjaxRequest(url, data);                
+            },
+            deleteItem: function (item) {
+                var url = "/api/data/DeleteItem";
+                var data = { pathInfo: item.key };
+                return SendAjaxRequest(url, data);
+            },
+            renameItem: function (item, newName) {
+                var url = "/api/data/RenameItem";
+                var data = { pathInfo: item.key, newName: newName };
+                return SendAjaxRequest(url, data);
+            },
+            createDirectory: function (parentDir, name) {
+                var url = "/api/data/CreateDirectory";
+                var data = { pathInfo: parentDir.key, name: name };
+                return SendAjaxRequest(url, data);
+            },
+            moveItem: function (item, destinationDirectory) {
+                var url = "/api/data/MoveItem";
+                var data = { pathInfo: item.key, destinationDirectory: destinationDirectory.key };
+                return SendAjaxRequest(url, data);
+            },
+            copyItem: function (item, destinationDirectory) {
+                var url = "/api/data/CopyItem";
+                var data = { pathInfo: item.key, destinationDirectory: destinationDirectory.key };
+                return SendAjaxRequest(url, data);
+            },
+
+            downloadItems: function (items) {
+                var myitems = [];
+                items.forEach(item => {
+                    myitems.push(item.key);
+                });
+                var json = encodeURIComponent(JSON.stringify(myitems));
+                var a = document.createElement("a");
+                document.body.appendChild(a);
+                a.href = "/api/data/DownloadItems/" + json;
+                a.download = items.length == 1 ? items[0].name : "archive.zip";
+                a.click();
+            },
+
+            uploadFileChunk: function (file, uploadInfo, destinationDirectory) {
+                const formData = new FormData();
+                if (uploadInfo.chunkIndex === 0) {
+                    uploadInfo.customData.uploadId = new DevExpress.data.Guid().toString();
+                }
+                formData.append('chunkMetadata', JSON.stringify({
+                    uploadId: uploadInfo.customData.uploadId,
+                    fileName: file.name,
+                    index: uploadInfo.chunkIndex,
+                    totalCount: uploadInfo.chunkCount,
+                    fileSize: file.size
+                }));
+                formData.append('fileChunk', uploadInfo.chunkBlob);
+                formData.append('destinationDirectory', JSON.stringify(destinationDirectory));
+                var url = "/api/data/UploadFileChunk";
+                return SendAjaxRequest(url, formData,"post");
+            }
+        });
+
+        function SendAjaxRequest(url, data, requestType = "get") {
             return new Promise((resolve, reject) => {
                 $.ajax({
                     url: url,
                     data: data,
-                    type: 'get',
+                    type: requestType,
                     dataType: 'json',
-                    contentType: "application/json; charset=utf-8",
+                    contentType: requestType == "get" ? "application/json; charset=utf-8" : false,
+                    processData: requestType == "get",
                     async: false,
                     success: function (response) {
                         if (response.success == false) {
@@ -24,90 +89,6 @@
                 });
             });
         }
-        function SendAjaxPostRequest(url, formData) {
-            return new Promise((resolve, reject) => {
-                $.ajax({
-                    url: url,
-                    method: 'POST',
-                    data: formData,
-                    processData: false,
-                    contentType: false,
-                    success: function (response) {
-                        if (response.success == false) {
-                            reject(new DevExpress.fileManagement.FileSystemError(response.errorCode, null, response.errorText));
-                        }
-                        else {
-                            resolve(response.result)
-                        }
-                    }
-                })
-            })
-        }
-        var customProvider = new DevExpress.fileManagement.CustomFileSystemProvider({
-            getItems: function (pathInfo) {
-                var url = "/api/data/getitems";
-                var data = { pathInfo: pathInfo.key };
-                return SendAjaxGetRequest(url, data);
-            },
-            deleteItem: function (item) {
-                var url = "/api/data/DeleteItem";
-                var data = { pathInfo: item.key };
-                return SendAjaxGetRequest(url, data);
-            },
-            renameItem: function (item, newName) {
-                var url = "/api/data/RenameItem";
-                var data = { pathInfo: item.key, newName: newName };
-                return SendAjaxGetRequest(url, data);
-            },
-            createDirectory: function (parentDir, name) {
-                var url = "/api/data/CreateDirectory";
-                var data = { pathInfo: parentDir.key, name: name };
-                return SendAjaxGetRequest(url, data);
-            },
-            moveItem: function (item, destinationDirectory) {
-                var url = "/api/data/MoveItem";
-                var data = { pathInfo: item.key, destinationDirectory: destinationDirectory.key };
-                return SendAjaxGetRequest(url, data);
-            },
-            copyItem: function (item, destinationDirectory) {
-                var url = "/api/data/CopyItem";
-                var data = { pathInfo: item.key, destinationDirectory: destinationDirectory.key };
-                return SendAjaxGetRequest(url, data);
-            },
-
-            downloadItems: function (items) {
-                var myitems = [];
-                items.forEach(item => {
-                    myitems.push(item.key);
-                });
-                var json = encodeURIComponent(JSON.stringify(myitems));
-                var a = document.createElement("a");
-                document.body.appendChild(a);
-                a.href = "/api/data/DownloadItems/" + json;
-                debugger;
-                a.download = items.length == 1 ? items[0].name : "archive.zip";
-                a.click();
-            },
-
-            uploadFileChunk: function (file, uploadInfo, destinationDirectory) {
-                const formData = new FormData();
-                if (uploadInfo.chunkIndex === 0) {
-                    uploadInfo.customData.uploadId = new DevExpress.data.Guid().toString();
-                }                
-                formData.append('chunkMetadata', JSON.stringify({
-                    uploadId: uploadInfo.customData.uploadId,
-                    fileName: file.name,
-                    index: uploadInfo.chunkIndex,
-                    totalCount: uploadInfo.chunkCount,
-                    fileSize: file.size
-                }));                
-                formData.append('fileChunk', uploadInfo.chunkBlob);
-                formData.append('destinationDirectory', JSON.stringify(destinationDirectory));
-                var url = "/api/data/UploadFileChunk";
-                return SendAjaxPostRequest(url, formData);                
-            }
-        });
-
         $('#file-manager').dxFileManager({
             name: 'fileManager',
             permissions: {

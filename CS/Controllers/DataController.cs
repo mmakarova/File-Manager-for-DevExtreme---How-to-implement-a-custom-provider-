@@ -2,7 +2,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json.Serialization;
 using Newtonsoft.Json;
-//using System.Text.Json;
 using System.Collections.Generic;
 using System.IO;
 using DevExtremeAspNetCoreApp1.Models;
@@ -26,21 +25,15 @@ namespace DevExtremeAspNetCoreApp1.Controllers {
         [HttpGet]
         public string GetItems(string pathInfo) {
             var folderName = pathInfo == null ? rootFolderName : pathInfo;
-            List<FileDataItem> items = new List<FileDataItem>();
-            var directories = Directory.GetDirectories(folderName);
-            foreach (var d in directories) {
-                DirectoryInfo dinfo = new DirectoryInfo(d);
+            DirectoryInfo dirInfo = new DirectoryInfo(folderName);
+            List<FileDataItem> items = new List<FileDataItem>();           
+            foreach (DirectoryInfo dinfo in dirInfo.GetDirectories()) {                
                 items.Add(new FileDataItem() { Key = dinfo.FullName, IsDirectory = true, Created = dinfo.CreationTime, Name = dinfo.Name, HasSubDirectories = dinfo.GetDirectories().Length > 0 });
             }
-            DirectoryInfo di = new DirectoryInfo(folderName);
-            var files = di.GetFiles();
-            foreach (FileInfo d in files) {
-                FileInfo fi = new FileInfo(d.FullName);
-                items.Add(new FileDataItem() { Key = fi.FullName, IsDirectory = false, Created = fi.CreationTime, Name = fi.Name, HasSubDirectories = false });
-            }
-            string response = this.CreateResponse(true, null, null, items.ToArray());
-            return response;
-
+            foreach (FileInfo file in dirInfo.GetFiles()) {
+                items.Add(new FileDataItem() { Key = file.FullName, IsDirectory = false, Created = file.CreationTime, Name = file.Name, HasSubDirectories = false });
+            }            
+            return this.CreateResponse(true, null, null, items.ToArray());
         }
 
         [Route("CreateDirectory")]
@@ -51,7 +44,7 @@ namespace DevExtremeAspNetCoreApp1.Controllers {
                 response = this.CreateResponse(false, 409, "You can't create a folder in the root directory", null);
             } else {
                 var folderName = pathInfo;
-                DirectoryInfo dir = Directory.CreateDirectory(pathInfo + "//" + name);
+                DirectoryInfo dir = Directory.CreateDirectory(Path.Combine(pathInfo,name));
                 if (dir != null) {
                     response = this.CreateResponse(true, null, null, null);
                 }
@@ -83,9 +76,7 @@ namespace DevExtremeAspNetCoreApp1.Controllers {
                         }
                     }
                     compressedBytes = resultStream.ToArray();
-
                 }
-
                 return File(compressedBytes, "application/octet-stream");
             }
 
@@ -127,9 +118,8 @@ namespace DevExtremeAspNetCoreApp1.Controllers {
                 di.MoveTo(newDirectory);
             } else {
                 FileInfo fi = new FileInfo(pathInfo);
-                string newpath = Path.Combine(fi.Directory.FullName, newName);
-                FileInfo nfi = new FileInfo(newpath);
-                if (nfi.Exists) {
+                string newpath = Path.Combine(fi.Directory.FullName, newName);                
+                if (fi.Exists) {
                     return this.CreateResponse(false, 409, "The target file already exists", null);
                 }
                 fi.MoveTo(newpath);
@@ -137,12 +127,9 @@ namespace DevExtremeAspNetCoreApp1.Controllers {
             return this.CreateResponse(true, null, null, null); ;
         }
         string CreateResponse(bool success, int? errorCode, string errorText, FileDataItem[] result) {
-            var serializerSettings = new JsonSerializerSettings();
-            serializerSettings.ContractResolver = new CamelCasePropertyNamesContractResolver();
-            string response = JsonConvert.SerializeObject(new { success = success, errorCode = errorCode, errorText = errorText, result = result }, serializerSettings);
-            return response;
+            var serializerSettings = new JsonSerializerSettings() { ContractResolver = new CamelCasePropertyNamesContractResolver() };            
+            return JsonConvert.SerializeObject(new { success, errorCode, errorText, result }, serializerSettings);
         }
-
 
         void CopyDirectory(string sourceDir, string destinationDir) {            
             var dir = new DirectoryInfo(sourceDir);
@@ -165,19 +152,16 @@ namespace DevExtremeAspNetCoreApp1.Controllers {
             if (string.IsNullOrEmpty(destinationDirectory)) {
                 destinationDirectory = rootFolderName;
             }
-
             FileAttributes attr = System.IO.File.GetAttributes(pathInfo);
             if (attr.HasFlag(FileAttributes.Directory)) {
                 var sourceDirectory = new DirectoryInfo(pathInfo);
                 var targetDirectory = new DirectoryInfo(destinationDirectory);
                 if (targetDirectory.GetDirectories().FirstOrDefault(d => d.Name == sourceDirectory.Name) != null) {
                     return this.CreateResponse(false, 409, "The dirctory already exists in the destination folder", null);
-
                 } else {
                     CopyDirectory(pathInfo, destinationDirectory);
                     Directory.Delete(pathInfo, true);
                 }
-
             } else {
                 FileInfo fi = new FileInfo(pathInfo);
                 string newpath = Path.Combine(destinationDirectory, fi.Name);
@@ -196,18 +180,15 @@ namespace DevExtremeAspNetCoreApp1.Controllers {
             if (string.IsNullOrEmpty(destinationDirectory)) {
                 destinationDirectory = rootFolderName;
             }
-
             FileAttributes attr = System.IO.File.GetAttributes(pathInfo);
             if (attr.HasFlag(FileAttributes.Directory)) {
                 var sourceDirectory = new DirectoryInfo(pathInfo);
                 var targetDirectory = new DirectoryInfo(destinationDirectory);
                 if (sourceDirectory.GetDirectories().FirstOrDefault(d => d.Name == targetDirectory.Name) != null) {
                     return this.CreateResponse(false, 409, "The dirctory already exists in the destination folder", null);
-
                 } else {
                     CopyDirectory(pathInfo, destinationDirectory);
                 }
-
             } else {
                 FileInfo fi = new FileInfo(pathInfo);
                 string newpath = Path.Combine(destinationDirectory, fi.Name);
@@ -228,7 +209,6 @@ namespace DevExtremeAspNetCoreApp1.Controllers {
                 Request.Form.TryGetValue("destinationDirectory", out var destinationDirSerialized);
                 var chunkMetadata = JsonConvert.DeserializeObject<ChunkMetadata>(metadataSerialized);
                 var destinationDirectory = JsonConvert.DeserializeObject<FileDataItem>(destinationDirSerialized);
-
                 SaveFile(fileChunk, chunkMetadata.fileName, Path.Combine(rootFolderName, destinationDirectory.Key));
                 return this.CreateResponse(true, null, null, null); ;
             } else {
@@ -244,6 +224,4 @@ namespace DevExtremeAspNetCoreApp1.Controllers {
             }
         }
     }
-
-
 }
