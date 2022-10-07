@@ -85,9 +85,8 @@ namespace DevExtremeAspNetCoreApp1.Controllers {
         [Route("DeleteItem")]
         [HttpGet]
         public string DeleteItem(string pathInfo) {
-            string response = string.Empty;
-            FileAttributes attr = System.IO.File.GetAttributes(pathInfo);
-            if (attr.HasFlag(FileAttributes.Directory)) {
+            string response = string.Empty;           
+            if (Directory.Exists(pathInfo)) {
                 DirectoryInfo di = new DirectoryInfo(pathInfo);
                 if (di.GetFiles().Length > 0 || di.GetDirectories().Length > 0) {
                     response = this.CreateResponse(false, 409, "You can't remove a directory with files or other directories", null);
@@ -107,8 +106,7 @@ namespace DevExtremeAspNetCoreApp1.Controllers {
         [HttpGet]
         public string RenameItem(string pathInfo, string newName) {
             string response = string.Empty;
-            FileAttributes attr = System.IO.File.GetAttributes(pathInfo);
-            if (attr.HasFlag(FileAttributes.Directory)) {
+            if (Directory.Exists(pathInfo)) {
                 DirectoryInfo di = new DirectoryInfo(pathInfo);
                 string folderName = Path.GetDirectoryName(pathInfo);
                 string newDirectory = Path.Combine(di.Parent.FullName, newName);
@@ -118,8 +116,9 @@ namespace DevExtremeAspNetCoreApp1.Controllers {
                 di.MoveTo(newDirectory);
             } else {
                 FileInfo fi = new FileInfo(pathInfo);
-                string newpath = Path.Combine(fi.Directory.FullName, newName);                
-                if (fi.Exists) {
+                string newpath = Path.Combine(fi.Directory.FullName, newName);
+                FileInfo nfi = new FileInfo(newpath);
+                if (nfi.Exists) {
                     return this.CreateResponse(false, 409, "The target file already exists", null);
                 }
                 fi.MoveTo(newpath);
@@ -152,8 +151,7 @@ namespace DevExtremeAspNetCoreApp1.Controllers {
             if (string.IsNullOrEmpty(destinationDirectory)) {
                 destinationDirectory = rootFolderName;
             }
-            FileAttributes attr = System.IO.File.GetAttributes(pathInfo);
-            if (attr.HasFlag(FileAttributes.Directory)) {
+            if (Directory.Exists(pathInfo)) {
                 var sourceDirectory = new DirectoryInfo(pathInfo);
                 var targetDirectory = new DirectoryInfo(destinationDirectory);
                 if (targetDirectory.GetDirectories().FirstOrDefault(d => d.Name == sourceDirectory.Name) != null) {
@@ -180,11 +178,10 @@ namespace DevExtremeAspNetCoreApp1.Controllers {
             if (string.IsNullOrEmpty(destinationDirectory)) {
                 destinationDirectory = rootFolderName;
             }
-            FileAttributes attr = System.IO.File.GetAttributes(pathInfo);
-            if (attr.HasFlag(FileAttributes.Directory)) {
+            if (Directory.Exists(pathInfo)) {
                 var sourceDirectory = new DirectoryInfo(pathInfo);
                 var targetDirectory = new DirectoryInfo(destinationDirectory);
-                if (sourceDirectory.GetDirectories().FirstOrDefault(d => d.Name == targetDirectory.Name) != null) {
+                if (targetDirectory.GetDirectories().FirstOrDefault(d => d.Name == sourceDirectory.Name) != null) {
                     return this.CreateResponse(false, 409, "The dirctory already exists in the destination folder", null);
                 } else {
                     CopyDirectory(pathInfo, destinationDirectory);
